@@ -16,13 +16,17 @@ class EventHandlerBind
 {
 public:
 	EventHandlerBind(EventHandlerId i, std::function<F> f)
-		: id(i), target(f)
+		: id(i), target(f), alive(true)
 	{
 	}
 	EventHandlerId id;
+	bool alive;
 	std::function<F> target;
 
-	bool operator<(const EventHandlerBind& rhs) const;
+	bool operator<(const EventHandlerBind& rhs) const
+	{
+		return id < rhs.id;
+	}
 };
 }
 
@@ -39,7 +43,7 @@ public:
 			{
 				auto it = listref->find(id, [](impl::EventHandlerBind bind, impl::EventHandlerId id) { return bind.id < id; });
 				if (it->id == id)
-					listref->erase(it);
+					it->alive = false;
 			}
 		}
 	private:
@@ -62,11 +66,21 @@ public:
 	template <typename Args...>
 	void operator()(Args... args)
 	{
-		for (auto it = events->begin(); it != events->end(); ++it)
+		typename FlatSet<impl::EventHandlerBind<F>>::iterator it, res, end;
+		bool propagating = true;
+		for (end = res = it = events->begin(); it != end; ++it)
 		{
-			if (it->target(args...))
-				break;
+			if (it->alive)
+			{
+				if (propagating && it->target(args...))
+					propagating = false;
+			}
+			else
+			{
+				*res++ = std::move(*it);
+			}
 		}
+		events->erase(res, events->end());
 	}
 private:
 	impl::EventHandlerId counter;
