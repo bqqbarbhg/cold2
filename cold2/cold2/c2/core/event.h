@@ -11,7 +11,7 @@ namespace c2 {
 namespace impl {
 typedef std::uint_fast32_t EventHandlerId;
 
-template <typename T>
+template <typename F>
 class EventHandlerBind
 {
 public:
@@ -37,47 +37,60 @@ public:
 	class Handler
 	{
 	public:
-		~Handler()
+		Handler(Handler&& h)
+			: id(h.id), listref(h.listref)
 		{
-			if (!listref.expired())
-			{
-				auto it = listref->find(id, [](impl::EventHandlerBind bind, impl::EventHandlerId id) { return bind.id < id; });
-				if (it->id == id)
-					it->alive = false;
-			}
+			h.listref.reset();
 		}
-	private:
 		Handler(impl::EventHandlerId i, std::weak_ptr<FlatSet<impl::EventHandlerBind<F>>> l)
 			: id(i), listref(l)
 		{
 		}
+		~Handler()
+		{
+			if (!listref.expired())
+			{
+				auto it = listref.lock()->find(id, [](impl::EventHandlerBind<F> bind, impl::EventHandlerId id) { return bind.id < id; });
+				if (it != listref.lock()->end() && it->id == id)
+					it->alive = false;
+			}
+		}
+		
+	private:
+		Handler(const Handler& h);
+		Handler& operator=(const Handler& h);
 		impl::EventHandlerId id;
 		std::weak_ptr<FlatSet<impl::EventHandlerBind<F>>> listref;
 	};
+
+	Event()
+		: counter(0), events(new FlatSet<impl::EventHandlerBind<F>>)
+	{
+	}
 
 	Handler add(std::function<F> target, unsigned int priority)
 	{
 		impl::EventHandlerId id = counter++ | priority << 16;
 		counter &= 0xFFFF;
-		events->insert(EventHandlerBind(id, target));
+		events->insert(impl::EventHandlerBind<F>(id, target));
 		return Handler(id, events);
 	}
 
-	template <typename Args...>
-	void operator()(Args... args)
+	template <typename Arg0>
+	void operator()(Arg0 arg)
 	{
 		typename FlatSet<impl::EventHandlerBind<F>>::iterator it, res, end;
 		bool propagating = true;
-		for (end = res = it = events->begin(); it != end; ++it)
+		for (res = it = events->begin(), end = events->end(); it != end; ++it)
 		{
 			if (it->alive)
 			{
-				if (propagating && it->target(args...))
+				if (res != it)
+					*res++ = std::move(*it);
+				else
+					res++;
+				if (propagating && it->target(arg))
 					propagating = false;
-			}
-			else
-			{
-				*res++ = std::move(*it);
 			}
 		}
 		events->erase(res, events->end());

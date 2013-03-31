@@ -18,5 +18,13 @@
     <ClInclude Include="c2\core\event.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="c2\core\flat_set.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="c2\core\event.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
