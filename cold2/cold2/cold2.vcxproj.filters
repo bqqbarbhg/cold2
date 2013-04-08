@@ -21,9 +21,21 @@
     <ClInclude Include="c2\core\flat_set.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="c2\render\render.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="c2\core\enabled_event.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="c2\render\gl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="c2\core\event.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="c2\render\render.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

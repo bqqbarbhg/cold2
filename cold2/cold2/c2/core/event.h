@@ -57,6 +57,7 @@ public:
 		}
 		
 	private:
+		friend class Event<F>;
 		Handler(const Handler& h);
 		Handler& operator=(const Handler& h);
 		impl::EventHandlerId id;
@@ -64,11 +65,11 @@ public:
 	};
 
 	Event()
-		: counter(0), events(new FlatSet<impl::EventHandlerBind<F>>)
+		: counter(0), events(std::make_shared<FlatSet<impl::EventHandlerBind<F>>>())
 	{
 	}
 
-	Handler add(std::function<F> target, unsigned int priority)
+	Handler add(const std::function<F>& target, unsigned int priority=0)
 	{
 		impl::EventHandlerId id = counter++ | priority << 16;
 		counter &= 0xFFFF;
@@ -76,24 +77,30 @@ public:
 		return Handler(id, events);
 	}
 
+	void remove(const Handler& handler)
+	{
+		auto it = events->find(handler.id, [](impl::EventHandlerBind<F> bind, impl::EventHandlerId id) { return bind.id < id; });
+		if (it != events->end() && it->id == handler.id)
+			it->alive = false;
+	}
+
 	template <typename Arg0>
-	void operator()(Arg0 arg)
+	int operator()(Arg0 arg)
 	{
 		typename FlatSet<impl::EventHandlerBind<F>>::iterator it, res, end;
-		bool propagating = true;
 		for (res = it = events->begin(), end = events->end(); it != end; ++it)
 		{
 			if (it->alive)
 			{
 				if (res != it)
-					*res++ = std::move(*it);
-				else
-					res++;
-				if (propagating && it->target(arg))
-					propagating = false;
+					*res = std::move(*it);
+				res++;
+				it->target(arg);
 			}
 		}
+		int c = res - events->begin();
 		events->erase(res, events->end());
+		return c;
 	}
 private:
 	impl::EventHandlerId counter;
